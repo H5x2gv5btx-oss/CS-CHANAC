@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>CS Chanac — Inventaires</title>
+<link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+/* ══════════════════════════════════════
+   LIQUID GLASS FOUNDATION
+══════════════════════════════════════ */
+:root {
+  --glass: rgba(255,255,255,0.18);
+  --glass-border: rgba(255,255,255,0.32);
+  --glass-shadow: rgba(0,0,0,0.18);
+  --glass-hover: rgba(255,255,255,0.26);
+  --glass-deep: rgba(255,255,255,0.10);
+  --text: rgba(255,255,255,0.95);
+  --text2: rgba(255,255,255,0.65);
+  --text3: rgba(255,255,255,0.38);
+  --red: #FF453A;
+  --red-glass: rgba(255,69,58,0.22);
+  --green: #34C759;
+  --green-glass: rgba(52,199,89,0.22);
+  --orange: #FF9F0A;
+  --orange-glass: rgba(255,159,10,0.22);
+  --blue: #0A84FF;
+  --blue-glass: rgba(10,132,255,0.22);
+  --accent: #FF453A;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+html { height: 100%; }
+
+body {
+  min-height: 100vh;
+  font-family: -apple-system, 'SF Pro Display', sans-serif;
+  font-size: 15px;
+  color: var(--text);
+  overflow-x: hidden;
+  background: #0A0A0F;
+}
+
+/* ANIMATED BACKGROUND */
+.bg {
+  position: fixed; inset: 0; z-index: 0;
+  background: linear-gradient(135deg, #0D0D1A 0%, #1A0A0A 35%, #0A1A1A 65%, #0D0D1A 100%);
+  overflow: hidden;
+}
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  animation: drift 18s ease-in-out infinite;
+  opacity: 0.55;
+}
+.blob1 { width: 420px; height: 420px; background: radial-gradient(circle, #FF453A55, #FF453A00); top: -100px; left: -100px; animation-delay: 0s; }
+.blob2 { width: 350px; height: 350px; background: radial-gradient(circle, #0A84FF44, #0A84FF00); bottom: -80px; right: -80px; animation-delay: -6s; }
+.blob3 { width: 280px; height: 280px; background: radial-gradient(circle, #34C75933, #34C75900); top: 40%; left: 55%; animation-delay: -12s; }
+@keyframes drift {
+  0%,100% { transform: translate(0,0) scale(1); }
+  33% { transform: translate(30px,-20px) scale(1.08); }
+  66% { transform: translate(-20px,30px) scale(0.94); }
+}
+
+/* GRAIN OVERLAY */
+.grain {
+  position: fixed; inset: 0; z-index: 1; pointer-events: none;
+  opacity: 0.032;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 128px 128px;
+}
+
+/* APP WRAPPER */
+#app { position: relative; z-index: 2; min-height: 100vh; display: flex; flex-direction: column; }
+
+/* ══════════════════════════════════════
+   LIQUID GLASS COMPONENTS
+══════════════════════════════════════ */
+.glass-panel {
+  background: var(--glass);
+  backdrop-filter: blur(32px) saturate(180%);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px var(--glass-shadow), inset 0 1px 0 rgba(255,255,255,0.2);
+}
+
+.glass-panel-sm {
+  background: var(--glass);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  box-shadow: 0 4px 16px var(--glass-shadow), inset 0 1px 0 rgba(255,255,255,0.18);
+}
+
+/* ══════════════════════════════════════
+   HEADER
+══════════════════════════════════════ */
+header {
+  padding: 56px 20px 0;
+  position: sticky; top: 0; z-index: 50;
+}
+.header-inner {
+  background: rgba(0,0,0,0.35);
+  backdrop-filter: blur(40px) saturate(200%);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 18px;
+  padding: 12px 16px;
+  display: flex; align-items: center; gap: 12px;
+  box-shadow: 0 2px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
+}
+.header-icon { font-size: 22px; }
+.header-title { flex: 1; font-size: 16px; font-weight: 600; letter-spacing: -0.3px; }
+.header-sub { font-size: 11px; color: var(--text3); font-variant-numeric: tabular-nums; }
+
+/* ══════════════════════════════════════
+   NAV BAR — Liquid Glass Pill
+══════════════════════════════════════ */
+.nav-wrap {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  z-index: 100;
+  display: flex; justify-content: center;
+  padding: 0 16px 28px;
+  pointer-events: none;
+}
+.nav-bar {
+  pointer-events: all;
+  background: rgba(20,20,28,0.72);
+  backdrop-filter: blur(48px) saturate(220%);
+  -webkit-backdrop-filter: blur(48px) saturate(220%);
+  border: 1px solid rgba(255,255,255,0.16);
+  border-radius: 32px;
+  padding: 8px 10px;
+  display: flex; gap: 2px;
+  box-shadow:
+    0 12px 48px rgba(0,0,0,0.55),
+    0 2px 0 rgba(255,255,255,0.08) inset,
+    0 -1px 0 rgba(0,0,0,0.3) inset;
+  width: 100%; max-width: 400px;
+}
+.nav-item {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  gap: 2px; padding: 8px 4px;
+  background: none; border: none; cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.34,1.56,0.64,1);
+  border-radius: 22px;
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+}
+.nav-item.active {
+  background: rgba(255,255,255,0.11);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.15), inset 0 -1px 0 rgba(0,0,0,0.2);
+}
+.nav-item:active { transform: scale(0.9); }
+.nav-icon {
+  font-size: 21px; transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1);
+  line-height: 1;
+}
+.nav-label {
+  font-size: 9.5px; font-weight: 500; color: var(--text3);
+  transition: color 0.2s; letter-spacing: 0.2px;
+}
+.nav-item.active .nav-label { color: rgba(255,255,255,0.9); font-weight: 600; }
+.nav-item.active .nav-icon { transform: scale(1.14); filter: drop-shadow(0 0 10px rgba(255,100,80,0.55)); }
+.nav-badge {
+  position: absolute; top: 4px; right: 8px;
+  background: var(--red); color: white; font-size: 9px; font-weight: 700;
+  padding: 1px 5px; border-radius: 8px; min-width: 16px; text-align: center;
+  box-shadow: 0 2px 8px rgba(255,69,58,0.5);
+}
+
+/* ══════════════════════════════════════
+   SCROLL CONTENT
+══════════════════════════════════════ */
+.view { display: none; flex: 1; overflow-y: auto; padding: 16px 16px 110px; animation: fadeUp 0.3s ease; }
+.view.active { display: block; }
+@keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+
+/* ══════════════════════════════════════
+   DASHBOARD
+══════════════════════════════════════ */
+.dash-hero {
+  margin-bottom: 14px;
+  padding: 20px;
+  position: relative; overflow: hidden;
+}
+.dash-hero::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(255,69,58,0.15), transparent 60%);
+  border-radius: inherit;
+}
+.dash-hero-label { font-size: 12px; color: var(--text3); font-weight: 500; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+.dash-hero-num { font-size: 52px; font-weight: 700; letter-spacing: -2px; line-height: 1; }
+.dash-hero-sub { font-size: 13px; color: var(--text2); margin-top: 6px; }
+
+.kpi-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.kpi-card { padding: 16px; position: relative; overflow: hidden; }
+.kpi-card::after {
+  content: attr(data-icon);
+  position: absolute; bottom: -6px; right: 8px;
+  font-size: 40px; opacity: 0.12; line-height: 1;
+}
+.kpi-n { font-size: 30px; font-weight: 700; letter-spacing: -1px; }
+.kpi-l { font-size: 11px; color: var(--text2); margin-top: 3px; font-weight: 500; }
+
+.alert-card {
+  background: var(--red-glass);
+  border: 1px solid rgba(255,69,58,0.35);
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+.alert-card-title { font-size: 13px; font-weight: 600; color: var(--red); display: flex; align-items: center; gap: 6px; }
+.alert-card-body { font-size: 12px; color: var(--text2); margin-top: 5px; line-height: 1.6; }
+
+.reminder-card {
+  background: var(--orange-glass);
+  border: 1px solid rgba(255,159,10,0.3);
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+.reminder-title { font-size: 13px; font-weight: 600; color: var(--orange); }
+.reminder-body { font-size: 12px; color: var(--text2); margin-top: 4px; line-height: 1.6; }
+
+/* ══════════════════════════════════════
+   FORM CARDS
+══════════════════════════════════════ */
+.form-card { margin-bottom: 12px; overflow: hidden; }
+
+.form-section-header {
+  padding: 14px 16px 10px;
+  display: flex; align-items: center; gap: 10px;
+}
+.fsh-icon { font-size: 17px; }
+.fsh-title { font-size: 14px; font-weight: 600; flex: 1; }
+.fsh-prog { font-size: 12px; color: var(--text3); font-variant-numeric: tabular-nums; }
+
+.sub-label {
+  padding: 6px 16px 5px;
+  font-size: 11px; font-weight: 500; text-transform: uppercase;
+  letter-spacing: 1px; color: var(--text3);
+  border-top: 1px solid rgba(255,255,255,0.08);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  background: rgba(0,0,0,0.12);
+}
+
+.check-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  transition: background 0.15s;
+}
+.check-row:last-child { border-bottom: none; }
+.check-row:active { background: rgba(255,255,255,0.05); }
+.qty-tag {
+  font-size: 11px; color: var(--text3); min-width: 22px; text-align: right;
+  font-variant-numeric: tabular-nums; flex-shrink: 0;
+}
+.item-name { flex: 1; font-size: 14px; font-weight: 400; }
+
+.btn-pa { display: flex; gap: 5px; flex-shrink: 0; }
+.pa-btn {
+  width: 36px; height: 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.06);
+  color: var(--text2);
+  font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all 0.18s;
+  display: flex; align-items: center; justify-content: center;
+}
+.pa-btn:active { transform: scale(0.88); }
+.pa-btn.p { background: var(--green-glass); border-color: rgba(52,199,89,0.5); color: var(--green); }
+.pa-btn.a { background: var(--red-glass); border-color: rgba(255,69,58,0.5); color: var(--red); }
+
+/* INFO FIELDS */
+.info-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.field-lbl { font-size: 11px; color: var(--text3); font-weight: 500; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 5px; }
+.field-inp {
+  width: 100%; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 10px; padding: 8px 12px;
+  font-family: inherit; font-size: 13px; color: var(--text); outline: none;
+  transition: all 0.2s; appearance: none; -webkit-appearance: none;
+}
+.field-inp:focus { background: rgba(255,255,255,0.13); border-color: rgba(255,255,255,0.3); }
+.field-inp::placeholder { color: var(--text3); }
+select.field-inp option { background: #1C1C2E; color: white; }
+textarea.field-inp { resize: none; min-height: 70px; }
+.full { grid-column: 1/-1; }
+
+/* OVERVIEW */
+.overview {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.ov-stat { text-align: center; min-width: 36px; }
+.ov-n { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }
+.ov-n.g { color: var(--green); }
+.ov-n.r { color: var(--red); }
+.ov-n.gray { color: var(--text3); }
+.ov-l { font-size: 9px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.8px; margin-top: 1px; }
+.ov-track-wrap { flex: 1; }
+.ov-pct-lbl { font-size: 12px; color: var(--text2); font-variant-numeric: tabular-nums; }
+.ov-track { height: 4px; background: rgba(255,255,255,0.12); border-radius: 2px; overflow: hidden; margin-top: 5px; }
+.ov-fill { height: 100%; border-radius: 2px; transition: width 0.5s cubic-bezier(0.34,1.2,0.64,1); }
+
+/* BATTERY */
+.bat-row { display: flex; align-items: center; gap: 10px; padding: 11px 16px; }
+.bat-btns { display: flex; gap: 6px; }
+.bat-btn {
+  padding: 5px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.06); font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all 0.18s; color: var(--text2);
+}
+.bat-btn.ok { background: var(--green-glass); border-color: rgba(52,199,89,0.5); color: var(--green); }
+.bat-btn.low { background: var(--red-glass); border-color: rgba(255,69,58,0.5); color: var(--red); }
+
+/* VSAV ADD */
+.add-row {
+  display: flex; gap: 8px; padding: 10px 14px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  background: rgba(0,0,0,0.12);
+}
+.add-inp {
+  flex: 1; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 10px; padding: 7px 11px;
+  font-family: inherit; font-size: 13px; color: var(--text); outline: none;
+}
+.add-inp::placeholder { color: var(--text3); }
+.add-inp:focus { border-color: rgba(255,255,255,0.3); }
+.add-btn {
+  background: var(--red-glass); border: 1px solid rgba(255,69,58,0.4); border-radius: 10px;
+  color: var(--red); font-size: 18px; font-weight: 300; cursor: pointer;
+  width: 36px; display: flex; align-items: center; justify-content: center;
+  transition: all 0.18s;
+}
+.del-btn {
+  background: none; border: none; color: var(--text3); font-size: 16px;
+  cursor: pointer; padding: 4px 6px; border-radius: 6px; transition: all 0.15s;
+}
+.del-btn:active { color: var(--red); }
+
+/* ══════════════════════════════════════
+   ACTION BUTTONS
+══════════════════════════════════════ */
+.action-bar {
+  display: flex; gap: 8px; padding: 14px 0 4px;
+}
+.btn-primary {
+  flex: 1; height: 48px;
+  background: linear-gradient(135deg, rgba(255,69,58,0.7), rgba(255,69,58,0.5));
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,69,58,0.5);
+  border-radius: 14px; color: white;
+  font-family: inherit; font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: all 0.2s;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  box-shadow: 0 4px 20px rgba(255,69,58,0.25);
+}
+.btn-primary:active { transform: scale(0.97); opacity: 0.85; }
+.btn-secondary {
+  height: 48px; padding: 0 18px;
+  background: rgba(255,255,255,0.1); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.18); border-radius: 14px;
+  color: var(--text2); font-family: inherit; font-size: 14px; font-weight: 500;
+  cursor: pointer; transition: all 0.2s;
+}
+.btn-secondary:active { transform: scale(0.97); }
+
+.btn-export {
+  height: 40px; padding: 0 16px;
+  background: rgba(52,199,89,0.15); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(52,199,89,0.3); border-radius: 12px;
+  color: var(--green); font-family: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px;
+}
+.btn-export:active { transform: scale(0.96); }
+
+/* ══════════════════════════════════════
+   HISTORY
+══════════════════════════════════════ */
+.hist-entry {
+  padding: 13px 16px; border-bottom: 1px solid rgba(255,255,255,0.07);
+  transition: background 0.15s;
+}
+.hist-entry:last-child { border-bottom: none; }
+.hist-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.hist-name { font-size: 14px; font-weight: 600; }
+.hist-meta { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.hist-chip {
+  font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 10px;
+  letter-spacing: 0.4px; text-transform: uppercase; flex-shrink: 0;
+}
+.chip-sps { background: var(--red-glass); color: var(--red); }
+.chip-dsa { background: var(--blue-glass); color: var(--blue); }
+.chip-vsav { background: var(--orange-glass); color: var(--orange); }
+.hist-stats { font-size: 12px; color: var(--text2); margin-top: 6px; }
+.hist-absent { font-size: 12px; color: var(--red); margin-top: 3px; }
+.hist-ok { font-size: 12px; color: var(--green); margin-top: 3px; }
+
+/* ══════════════════════════════════════
+   TOAST
+══════════════════════════════════════ */
+.toast {
+  position: fixed; top: 110px; left: 50%; transform: translateX(-50%) translateY(-12px);
+  background: rgba(30,30,40,0.92); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+  border: 1px solid rgba(255,255,255,0.15); border-radius: 14px;
+  color: white; padding: 10px 18px; font-size: 13px; font-weight: 500;
+  opacity: 0; pointer-events: none; transition: all 0.28s cubic-bezier(0.34,1.56,0.64,1);
+  z-index: 200; white-space: nowrap; max-width: 88vw; text-align: center;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.2); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.empty-st { text-align: center; padding: 44px 20px; color: var(--text3); font-size: 14px; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<div class="bg">
+  <div class="blob blob1"></div>
+  <div class="blob blob2"></div>
+  <div class="blob blob3"></div>
+</div>
+<div class="grain"></div>
+
+<div id="app">
+
+<!-- HEADER -->
+<header>
+  <div class="header-inner">
+    <span class="header-icon">🚒</span>
+    <span class="header-title">CS Chanac</span>
+    <span class="header-sub" id="hdate"></span>
+  </div>
+</header>
+
+<!-- VIEWS -->
+
+<!-- ── DASHBOARD ── -->
+<div class="view active" id="view-dash">
+  <div id="alert-zone"></div>
+  <div id="remind-zone"></div>
+  <div class="glass-panel dash-hero">
+    <div class="dash-hero-label">Contrôles effectués</div>
+    <div class="dash-hero-num" id="kpi-total">—</div>
+    <div class="dash-hero-sub" id="kpi-sub">Chargement…</div>
+  </div>
+  <div class="kpi-row">
+    <div class="glass-panel-sm kpi-card" data-icon="❌">
+      <div class="kpi-n" style="color:var(--red)" id="kpi-abs">—</div>
+      <div class="kpi-l">Absences signalées</div>
+    </div>
+    <div class="glass-panel-sm kpi-card" data-icon="✅">
+      <div class="kpi-n" style="color:var(--green)" id="kpi-ok">—</div>
+      <div class="kpi-l">Contrôles sans défaut</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center">
+    <span style="font-size:13px;font-weight:600;flex:1">Historique récent</span>
+    <button class="btn-export" onclick="exportAllExcel()">📊 Export Excel</button>
+  </div>
+  <div class="glass-panel" id="dash-recent" style="overflow:hidden">
+    <div class="empty-st">Chargement…</div>
+  </div>
+</div>
+
+<!-- ── SAC PS ── -->
+<div class="view" id="view-sps">
+  <div class="glass-panel form-card">
+    <div class="info-grid">
+      <div><div class="field-lbl">Réalisé par</div><input class="field-inp" id="sps-realise" placeholder="Nom Prénom" oninput="saveSpsInfo()"></div>
+      <div><div class="field-lbl">Date</div><input type="date" class="field-inp" id="sps-date" oninput="saveSpsInfo()"></div>
+      <div class="full"><div class="field-lbl">N° Garde</div>
+        <select class="field-inp" id="sps-garde" onchange="saveSpsInfo()">
+          <option value="">— Sélectionner —</option>
+          <option>Garde 1</option><option>Garde 2</option><option>Garde 3</option><option>Garde 4</option>
+        </select>
+      </div>
+    </div>
+    <div class="overview" id="ov-sps">
+      <div class="ov-stat"><div class="ov-n g" id="sps-p">0</div><div class="ov-l">Présents</div></div>
+      <div class="ov-stat"><div class="ov-n r" id="sps-a">0</div><div class="ov-l">Absents</div></div>
+      <div class="ov-track-wrap">
+        <div class="ov-pct-lbl" id="sps-pct">0%</div>
+        <div class="ov-track"><div class="ov-fill" id="sps-bar" style="width:0%"></div></div>
+      </div>
+      <div class="ov-stat"><div class="ov-n gray" id="sps-n">0</div><div class="ov-l">Non vérif.</div></div>
+    </div>
+  </div>
+
+  <div class="glass-panel form-card">
+    <div class="form-section-header"><span class="fsh-icon">🟠</span><span class="fsh-title">Poche gauche</span><span class="fsh-prog" id="prog-pg"></span></div>
+    <div id="rows-pg"></div>
+    <div class="sub-label">Sacoche rouge</div>
+    <div id="rows-rouge"></div>
+  </div>
+
+  <div class="glass-panel form-card">
+    <div class="form-section-header"><span class="fsh-icon">🟣</span><span class="fsh-title">Poche centrale avant</span></div>
+    <div class="sub-label">Sacoche violette</div><div id="rows-violette"></div>
+    <div class="sub-label">Sacoche bleue</div><div id="rows-bleue"></div>
+    <div class="sub-label">Devant du sac</div><div id="rows-devant"></div>
+  </div>
+
+  <div class="glass-panel form-card">
+    <div class="form-section-header"><span class="fsh-icon">🟢</span><span class="fsh-title">Poche centrale arrière</span></div>
+    <div id="rows-pcarr"></div>
+    <div class="sub-label">Sacoche verte (au-dessus oxy)</div>
+    <div id="rows-verte"></div>
+  </div>
+
+  <div class="glass-panel form-card">
+    <div class="form-section-header"><span class="fsh-icon">🔵</span><span class="fsh-title">Poche droite</span></div>
+    <div id="rows-pd"></div>
+  </div>
+
+  <div class="glass-panel form-card">
+    <div class="form-section-header"><span class="fsh-icon">📝</span><span class="fsh-title">Remarques</span></div>
+    <div style="padding:0 14px 14px"><textarea class="field-inp" id="sps-remarques" placeholder="Observations…" oninput="saveSpsInfo()"></textarea></div>
+  </div>
+
+  <div class="action-bar">
+    <button class="btn-secondary" onclick="resetSps()">↺</button>
+    <button class="btn-primary" onclick="saveSpsControl()" id="btn-sps">💾 Enregistrer + Excel</button>
+  </div>
+</div>
+
+<!-- ── DSA ── -->
+<div class="view" id="view-dsa">
+  <div class="glass-panel form-card">
+    <div class="info-grid">
+      <div><div class="field-lbl">Réalisé par</div><input class="field-inp" id="dsa-realise" placeholder="Nom Prénom" oninput="saveDsaInfo()"></div>
+      <div><div class="field-lbl">Date</div><input type="date" class="field-inp" id="dsa-date" oninput="saveDsaInfo()"></div>
+      <div class="full"><div class="field-lbl">N° Garde</div>
+        <select class="field-inp" id="dsa-garde" onchange="saveDsaInfo()">
+          <option value="">— Sélectionner —</option>
+          <option>Garde 1</option><option>Garde 2</option><option>Garde 3</option><option>Garde 4</option>
+        </select>
+      </div>
+    </div>
+    <div class="overview">
+      <div class="ov-stat"><div class="ov-n g" id="dsa-p">0</div><div class="ov-l">Présents</div></div>
+      <div class="ov-stat"><div class="ov-n r" id="dsa-a">0</div><div class="ov-l">Absents</div></div>
+      <div class="ov-track-wrap">
+        <div class="ov-pct-lbl" id="dsa-pct">0%</div>
+        <div class="ov-track"><div class="ov-fill" id="dsa-bar" style="width:0%"></div></div>
+      </div>
+      <div class="ov-stat"><div class="ov-n gray" id="dsa-n">0</div><div class="ov-l">Non vérif.</div></div>
+    </div>
+  </div>
+  <div class="glass-panel form-card">
+    <div class="form-section-header"><span class="fsh-icon">⚡</span><span class="fsh-title">Défibrillateur Semi-Automatique</span></div>
+    <div id="rows-dsa"></div>
+    <div class="bat-row">
+      <span style="font-size:14px;flex:1">État de la batterie</span>
+      <div class="bat-btns">
+        <button class="bat-btn" id="bat-ok" onclick="setBat('ok')">✓ OK</button>
+        <button class="bat-btn" id="bat-low" onclick="setBat('low')">⚠ Faible</button>
+      </div>
+    </div>
+  </div>
+  <div class="glass-panel form-card">
+    <div class="form-section-header"><span class="fsh-icon">📝</span><span class="fsh-title">Remarques DSA</span></div>
+    <div style="padding:0 14px 14px"><textarea class="field-inp" id="dsa-remarques" placeholder="Observations…" oninput="saveDsaInfo()"></textarea></div>
+  </div>
+  <div class="action-bar">
+    <button class="btn-secondary" onclick="resetDsa()">↺</button>
+    <button class="btn-primary" onclick="saveDsaControl()" id="btn-dsa">💾 Enregistrer + Excel</button>
+  </div>
+</div>
+
+<!-- ── VSAV ── -->
+<div class="view" id="view-vsav">
+  <div class="glass-panel form-card">
+    <div class="info-grid">
+      <div><div class="field-lbl">Réalisé par</div><input class="field-inp" id="vsav-realise" placeholder="Nom Prénom" oninput="saveVsavInfo()"></div>
+      <div><div class="field-lbl">Date</div><input type="date" class="field-inp" id="vsav-date" oninput="saveVsavInfo()"></div>
+      <div class="full"><div class="field-lbl">N° Garde</div>
+        <select class="field-inp" id="vsav-garde" onchange="saveVsavInfo()">
+          <option value="">— Sélectionner —</option>
+          <option>Garde 1</option><option>Garde 2</option><option>Garde 3</option><option>Garde 4</option>
+        </select>
+      </div>
+    </div>
+    <div class="overview">
+      <div class="ov-stat"><div class="ov-n g" id="vsav-p">0</div><div class="ov-l">Présents</div></div>
+      <div class="ov-stat"><div class="ov-n r" id="vsav-a">0</div><div class="ov-l">Absents</div></div>
+      <div class="ov-track-wrap">
+        <div class="ov-pct-lbl" id="vsav-pct">0%</div>
+        <div class="ov-track"><div class="ov-fill" id="vsav-bar" style="width:0%"></div></div>
+      </div>
+      <div class="ov-stat"><div class="ov-n gray" id="vsav-n">0</div><div class="ov-l">Non vérif.</div></div>
+    </div>
+  </div>
+  <div class="glass-panel form-card">
+    <div class="form-section-header"><span class="fsh-icon">🚑</span><span class="fsh-title">Équipements VSAV</span><span class="fsh-prog" id="prog-vsav"></span></div>
+    <div id="rows-vsav"></div>
+    <div class="add-row">
+      <input class="add-inp" id="vsav-new-name" placeholder="Nouvel équipement…">
+      <input class="add-inp" id="vsav-new-qty" placeholder="Qté" style="max-width:50px">
+      <button class="add-btn" onclick="addVsav()">+</button>
+    </div>
+  </div>
+  <div class="glass-panel form-card">
+    <div class="form-section-header"><span class="fsh-icon">📝</span><span class="fsh-title">Remarques VSAV</span></div>
+    <div style="padding:0 14px 14px"><textarea class="field-inp" id="vsav-remarques" placeholder="Observations…" oninput="saveVsavInfo()"></textarea></div>
+  </div>
+  <div class="action-bar">
+    <button class="btn-secondary" onclick="resetVsav()">↺</button>
+    <button class="btn-primary" onclick="saveVsavControl()" id="btn-vsav">💾 Enregistrer + Excel</button>
+  </div>
+</div>
+
+<!-- ── HISTORIQUE ── -->
+<div class="view" id="view-hist">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+    <span style="font-size:15px;font-weight:600;flex:1">Tous les contrôles</span>
+    <button class="btn-export" onclick="exportAllExcel()">📊 Export Excel</button>
+  </div>
+  <div class="glass-panel" id="hist-list" style="overflow:hidden"><div class="empty-st">Chargement…</div></div>
+</div>
+
+<!-- BOTTOM NAV PILL -->
+<div class="nav-wrap">
+  <nav class="nav-bar">
+    <button class="nav-item active" id="nav-dash" onclick="showView('dash')">
+      <span class="nav-icon">📊</span><span class="nav-label">Dashboard</span>
+    </button>
+    <button class="nav-item" id="nav-sps" onclick="showView('sps')">
+      <span class="nav-icon">🎒</span><span class="nav-label">Sac PS</span>
+    </button>
+    <button class="nav-item" id="nav-dsa" onclick="showView('dsa')">
+      <span class="nav-icon">⚡</span><span class="nav-label">DSA</span>
+    </button>
+    <button class="nav-item" id="nav-vsav" onclick="showView('vsav')">
+      <span class="nav-icon">🚑</span><span class="nav-label">VSAV</span>
+    </button>
+    <button class="nav-item" id="nav-hist" onclick="showView('hist')">
+      <span class="nav-icon">📋</span><span class="nav-label">Historique</span>
+    </button>
+  </nav>
+</div>
+
+</div><!-- #app -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════
+// DATA
+// ══════════════════════════════════════════════
+const SPS = {
+  pg:       [['2','Écharpes'],['10','Masques chirurgicaux'],['10','Paires de gants XL'],['1','Collecteur DASRI'],['1','Rlx de sacs poubelle']],
+  rouge:    [['10','Compresses'],['3','Pansements américains'],['3','Dosettes NaCl 10 ml'],['1','Pansement israélien'],['1','Garrot tourniquet'],['3','Bandes 10 cm'],['1','Sparadrap'],['1','Ciseau GESCO'],['2','Couvertures de survie']],
+  violette: [['1','Carnet et stylo'],['1','Stéthoscope'],['1','Tensiomètre manuel'],['1','Thermomètre auriculaire'],['1','Lampe à pupilles']],
+  bleue:    [['1','BAVU enfant'],['1','MHC pédiatrique'],['1','Canule Guédel T00'],['1','Canule Guédel T1']],
+  devant:   [['1','Détecteur de monoxyde (CO)']],
+  pcarr:    [['1','Bouteille Oxy 5 L'],['1','Collier cervical adulte'],['1','Collier cervical enfant']],
+  verte:    [['1','Lecteur glycémie'],['5','Lancettes'],['1','Dosette NACL'],['5','Compresses'],['20','Sucres emballés']],
+  pd:       [['1','BAVU adulte'],['2','MHC adulte'],['1','Canule guédel T2'],['1','Canule guédel T3'],['1','Canule guédel T4'],['1','Lunette oxy'],['2','Lunettes de protection'],['2','Vomix']]
+};
+const DSA_LIST = [
+  ['1','Appareil DSA (Défibrillateur Semi-Automatique)'],
+  ['1','Paire d\'électrodes adultes (en place)'],
+  ['1','Paire d\'électrodes pédiatriques (ou sélecteur)'],
+  ['1','Kit de préparation (rasoir, ciseaux, compresses, gants)']
+];
+
+// ══════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════
+let spsC={}, spsI={};
+let dsaC={}, dsaI={}, dsaBat='';
+let vsavC={}, vsavI={}, vsavItems=[];
+let history=[];
+
+function loadState() {
+  spsC=JSON.parse(localStorage.getItem('ch4_sps_c')||'{}');
+  spsI=JSON.parse(localStorage.getItem('ch4_sps_i')||'{}');
+  dsaC=JSON.parse(localStorage.getItem('ch4_dsa_c')||'{}');
+  dsaI=JSON.parse(localStorage.getItem('ch4_dsa_i')||'{}');
+  dsaBat=localStorage.getItem('ch4_dsa_bat')||'';
+  vsavC=JSON.parse(localStorage.getItem('ch4_vsav_c')||'{}');
+  vsavI=JSON.parse(localStorage.getItem('ch4_vsav_i')||'{}');
+  vsavItems=JSON.parse(localStorage.getItem('ch4_vsav_items')||'[]');
+  history=JSON.parse(localStorage.getItem('ch4_history')||'[]');
+}
+function saveState() {
+  localStorage.setItem('ch4_sps_c',JSON.stringify(spsC));
+  localStorage.setItem('ch4_sps_i',JSON.stringify(spsI));
+  localStorage.setItem('ch4_dsa_c',JSON.stringify(dsaC));
+  localStorage.setItem('ch4_dsa_i',JSON.stringify(dsaI));
+  localStorage.setItem('ch4_dsa_bat',dsaBat);
+  localStorage.setItem('ch4_vsav_c',JSON.stringify(vsavC));
+  localStorage.setItem('ch4_vsav_i',JSON.stringify(vsavI));
+  localStorage.setItem('ch4_vsav_items',JSON.stringify(vsavItems));
+  localStorage.setItem('ch4_history',JSON.stringify(history));
+}
+
+// ══════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════
+function init() {
+  loadState();
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('hdate').textContent = new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+  ['sps','dsa','vsav'].forEach(p=>{
+    const info = p==='sps'?spsI:p==='dsa'?dsaI:vsavI;
+    document.getElementById(p+'-date').value = info.date||today;
+    if(info.realise) document.getElementById(p+'-realise').value=info.realise;
+    if(info.garde) document.getElementById(p+'-garde').value=info.garde;
+    if(info.remarques) document.getElementById(p+'-remarques').value=info.remarques;
+  });
+  renderSps(); renderDsa(); renderVsav();
+  loadDashboard();
+}
+
+// ══════════════════════════════════════════════
+// VIEWS
+// ══════════════════════════════════════════════
+let currentView='dash';
+function showView(v) {
+  document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  document.getElementById('nav-'+v).classList.add('active');
+  currentView=v;
+  if(v==='hist') renderHistory();
+  if(v==='dash') loadDashboard();
+}
+
+// ══════════════════════════════════════════════
+// ROW BUILDER
+// ══════════════════════════════════════════════
+function buildRows(cid, items, checks, prefix, fn) {
+  const c=document.getElementById(cid); c.innerHTML='';
+  items.forEach(([qty,name],i)=>{
+    const k=prefix+'_'+i, st=checks[k]||'';
+    const row=document.createElement('div'); row.className='check-row';
+    row.innerHTML=`
+      <span class="qty-tag">${qty}</span>
+      <span class="item-name">${name}</span>
+      <div class="btn-pa">
+        <button class="pa-btn ${st==='P'?'p':''}" onclick="${fn}('${k}','P')">P</button>
+        <button class="pa-btn ${st==='A'?'a':''}" onclick="${fn}('${k}','A')">A</button>
+      </div>`;
+    c.appendChild(row);
+  });
+}
+
+function updateOv(pfx, checks, total) {
+  const p=Object.values(checks).filter(v=>v==='P').length;
+  const a=Object.values(checks).filter(v=>v==='A').length;
+  const n=total-p-a, pct=total?Math.round(p/total*100):0;
+  document.getElementById(pfx+'-p').textContent=p;
+  document.getElementById(pfx+'-a').textContent=a;
+  document.getElementById(pfx+'-n').textContent=n;
+  document.getElementById(pfx+'-pct').textContent=pct+'%';
+  const bar=document.getElementById(pfx+'-bar');
+  bar.style.width=pct+'%';
+  bar.style.background=a>0?'var(--red)':pct===100?'var(--green)':'var(--orange)';
+}
+
+// ══════════════════════════════════════════════
+// SPS
+// ══════════════════════════════════════════════
+window.spsChk=(k,v)=>{ spsC[k]=spsC[k]===v?'':v; saveState(); renderSps(); };
+function renderSps() {
+  Object.keys(SPS).forEach(s=>buildRows('rows-'+s, SPS[s], spsC, s, 'spsChk'));
+  const total=Object.values(SPS).reduce((s,a)=>s+a.length,0);
+  updateOv('sps',spsC,total);
+  const pgP=Object.keys(spsC).filter(k=>k.startsWith('pg_')&&spsC[k]==='P').length;
+  const el=document.getElementById('prog-pg');
+  if(el) el.textContent=`${pgP}/${SPS.pg.length}`;
+}
+function saveSpsInfo() {
+  spsI={realise:document.getElementById('sps-realise').value,date:document.getElementById('sps-date').value,garde:document.getElementById('sps-garde').value,remarques:document.getElementById('sps-remarques').value};
+  saveState();
+}
+function saveSpsControl() {
+  const total=Object.values(SPS).reduce((s,a)=>s+a.length,0);
+  const p=Object.values(spsC).filter(v=>v==='P').length;
+  const a=Object.values(spsC).filter(v=>v==='A').length;
+  const absL=[];
+  Object.entries(SPS).forEach(([s,items])=>items.forEach(([,n],i)=>{ if(spsC[s+'_'+i]==='A') absL.push(n); }));
+  history.unshift({type:'sps',realise:spsI.realise||'—',garde:spsI.garde||'—',date:spsI.date||today(),total,p,a,absL,remarques:spsI.remarques||''});
+  saveState();
+  autoExportExcel();
+  toast('✓ Enregistré — Excel mis à jour 📊'); loadDashboard();
+}
+function resetSps(){ if(!confirm('Réinitialiser ?')) return; spsC={}; saveState(); renderSps(); }
+
+// ══════════════════════════════════════════════
+// DSA
+// ══════════════════════════════════════════════
+window.dsaChk=(k,v)=>{ dsaC[k]=dsaC[k]===v?'':v; saveState(); renderDsa(); };
+function renderDsa() {
+  buildRows('rows-dsa',DSA_LIST,dsaC,'dsa','dsaChk');
+  updateOv('dsa',dsaC,DSA_LIST.length);
+  document.getElementById('bat-ok').className='bat-btn'+(dsaBat==='ok'?' ok':'');
+  document.getElementById('bat-low').className='bat-btn'+(dsaBat==='low'?' low':'');
+}
+function setBat(v){ dsaBat=dsaBat===v?'':v; saveState(); renderDsa(); }
+function saveDsaInfo(){ dsaI={realise:document.getElementById('dsa-realise').value,date:document.getElementById('dsa-date').value,garde:document.getElementById('dsa-garde').value,remarques:document.getElementById('dsa-remarques').value}; saveState(); }
+function saveDsaControl() {
+  const p=Object.values(dsaC).filter(v=>v==='P').length;
+  const a=Object.values(dsaC).filter(v=>v==='A').length;
+  const absL=DSA_LIST.map(([,n],i)=>dsaC['dsa_'+i]==='A'?n:null).filter(Boolean);
+  if(dsaBat==='low') absL.push('Batterie faible');
+  history.unshift({type:'dsa',realise:dsaI.realise||'—',garde:dsaI.garde||'—',date:dsaI.date||today(),total:DSA_LIST.length,p,a,absL,battery:dsaBat,remarques:dsaI.remarques||''});
+  saveState();
+  autoExportExcel();
+  toast('✓ Enregistré — Excel mis à jour 📊'); loadDashboard();
+}
+function resetDsa(){ if(!confirm('Réinitialiser ?')) return; dsaC={}; dsaBat=''; saveState(); renderDsa(); }
+
+// ══════════════════════════════════════════════
+// VSAV
+// ══════════════════════════════════════════════
+window.vsavChk=(i,v)=>{ const k='vsav_'+i; vsavC[k]=vsavC[k]===v?'':v; saveState(); renderVsav(); };
+window.delVsav=(i)=>{ vsavItems.splice(i,1); const nc={}; vsavItems.forEach((_,j)=>{if(vsavC['vsav_'+j])nc['vsav_'+j]=vsavC['vsav_'+j];}); vsavC=nc; saveState(); renderVsav(); };
+function renderVsav() {
+  const c=document.getElementById('rows-vsav'); c.innerHTML='';
+  if(!vsavItems.length){ c.innerHTML='<div class="empty-st">Ajoutez vos équipements ci-dessous</div>'; }
+  else vsavItems.forEach((item,i)=>{
+    const k='vsav_'+i, st=vsavC[k]||'';
+    const row=document.createElement('div'); row.className='check-row';
+    row.innerHTML=`<span class="qty-tag">${item.qty}</span><span class="item-name">${item.name}</span>
+      <div class="btn-pa">
+        <button class="pa-btn ${st==='P'?'p':''}" onclick="vsavChk(${i},'P')">P</button>
+        <button class="pa-btn ${st==='A'?'a':''}" onclick="vsavChk(${i},'A')">A</button>
+        <button class="del-btn" onclick="delVsav(${i})">×</button>
+      </div>`;
+    c.appendChild(row);
+  });
+  const vp=Object.values(vsavC).filter(v=>v==='P').length;
+  document.getElementById('prog-vsav').textContent=`${vp}/${vsavItems.length}`;
+  updateOv('vsav',vsavC,vsavItems.length);
+}
+function addVsav() {
+  const name=document.getElementById('vsav-new-name').value.trim();
+  const qty=document.getElementById('vsav-new-qty').value.trim()||'1';
+  if(!name) return;
+  vsavItems.push({name,qty});
+  document.getElementById('vsav-new-name').value='';
+  document.getElementById('vsav-new-qty').value='';
+  saveState(); renderVsav();
+}
+function saveVsavInfo(){ vsavI={realise:document.getElementById('vsav-realise').value,date:document.getElementById('vsav-date').value,garde:document.getElementById('vsav-garde').value,remarques:document.getElementById('vsav-remarques').value}; saveState(); }
+function saveVsavControl() {
+  const p=Object.values(vsavC).filter(v=>v==='P').length;
+  const a=Object.values(vsavC).filter(v=>v==='A').length;
+  const absL=vsavItems.map((it,i)=>vsavC['vsav_'+i]==='A'?it.name:null).filter(Boolean);
+  history.unshift({type:'vsav',realise:vsavI.realise||'—',garde:vsavI.garde||'—',date:vsavI.date||today(),total:vsavItems.length,p,a,absL,remarques:vsavI.remarques||''});
+  saveState();
+  autoExportExcel();
+  toast('✓ Enregistré — Excel mis à jour 📊'); loadDashboard();
+}
+function resetVsav(){ if(!confirm('Réinitialiser ?')) return; vsavC={}; saveState(); renderVsav(); }
+
+// ══════════════════════════════════════════════
+// DASHBOARD
+// ══════════════════════════════════════════════
+function loadDashboard() {
+  document.getElementById('kpi-total').textContent=history.length;
+  document.getElementById('kpi-abs').textContent=history.filter(h=>h.a>0).length;
+  document.getElementById('kpi-ok').textContent=history.filter(h=>h.a===0).length;
+  if(history.length){
+    const last=history[0];
+    const lbl=last.type==='sps'?'Sac PS':last.type==='dsa'?'DSA':'VSAV';
+    document.getElementById('kpi-sub').textContent=`Dernier : ${lbl} — ${last.date} par ${last.realise}`;
+  } else { document.getElementById('kpi-sub').textContent='Aucun contrôle enregistré'; }
+
+  // Alerts
+  const alertZ=document.getElementById('alert-zone');
+  const issues=history.filter(h=>h.a>0).slice(0,2);
+  alertZ.innerHTML=issues.map(h=>{
+    const lbl=h.type==='sps'?'Sac PS N°1':h.type==='dsa'?'DSA':'VSAV';
+    return `<div class="alert-card"><div class="alert-card-title">🚨 ${lbl} — ${h.date}</div><div class="alert-card-body">• ${h.absL.join('<br>• ')}</div></div>`;
+  }).join('');
+
+  // Reminders
+  const remZ=document.getElementById('remind-zone');
+  const overdue=[];
+  ['sps','dsa','vsav'].forEach(t=>{
+    const lbl=t==='sps'?'Sac PS':t==='dsa'?'DSA':'VSAV';
+    const last=history.find(h=>h.type===t);
+    if(!last){ overdue.push(`${lbl} — jamais contrôlé`); return; }
+    const diff=(new Date()-new Date(last.date))/(1000*60*60*24);
+    if(diff>7) overdue.push(`${lbl} — dernier : ${last.date}`);
+  });
+  remZ.innerHTML=overdue.length?`<div class="reminder-card"><div class="reminder-title">⏰ Contrôle(s) en retard</div><div class="reminder-body">• ${overdue.join('<br>• ')}</div></div>`:'';
+
+  // Recent
+  const rl=document.getElementById('dash-recent');
+  if(!history.length){ rl.innerHTML='<div class="empty-st">Aucun contrôle enregistré.</div>'; return; }
+  rl.innerHTML=history.slice(0,6).map(h=>histRow(h)).join('');
+}
+
+function renderHistory() {
+  const c=document.getElementById('hist-list');
+  if(!history.length){ c.innerHTML='<div class="empty-st">Aucun contrôle.</div>'; return; }
+  c.innerHTML=history.map(h=>histRow(h)).join('');
+}
+
+function histRow(h) {
+  const lbl=h.type==='sps'?'Sac PS N°1':h.type==='dsa'?'DSA':'VSAV';
+  const chip=h.type==='sps'?'chip-sps':h.type==='dsa'?'chip-dsa':'chip-vsav';
+  const issues=h.a>0?`<div class="hist-absent">✗ ${h.absL.join(', ')}</div>`:`<div class="hist-ok">✓ Aucun absent</div>`;
+  const bat=h.battery?` · Batterie : ${h.battery==='ok'?'OK':'⚠ Faible'}`:'';
+  return `<div class="hist-entry">
+    <div class="hist-top">
+      <div><div class="hist-name">${h.realise} — ${h.garde}</div><div class="hist-meta">${h.date}</div></div>
+      <span class="hist-chip ${chip}">${lbl}</span>
+    </div>
+    <div class="hist-stats">${h.p}/${h.total} présents${bat}</div>${issues}
+    ${h.remarques?`<div style="font-size:11px;color:var(--text3);margin-top:3px;font-style:italic">${h.remarques}</div>`:''}
+  </div>`;
+}
+
+// ══════════════════════════════════════════════
+// EXPORT EXCEL — AUTO + MANUEL
+// ══════════════════════════════════════════════
+function buildHistoryWorkbook() {
+  const wb = XLSX.utils.book_new();
+
+  // ── Feuille 1 : Récap tous contrôles ──
+  const headers = ['Date','Type','Réalisé par','Garde','Présents','Total','Absents','Éléments absents','Batterie','Remarques'];
+  const rows = [['CS CHANAC — Historique des contrôles'],['Généré le : '+new Date().toLocaleString('fr-FR')],[''],headers];
+  history.forEach(h=>{
+    const lbl=h.type==='sps'?'Sac PS N°1':h.type==='dsa'?'DSA':'VSAV';
+    rows.push([h.date,lbl,h.realise,h.garde,h.p,h.total,h.a,h.absL.join(', '),h.battery||'',h.remarques||'']);
+  });
+  const ws1 = XLSX.utils.aoa_to_sheet(rows);
+  ws1['!cols']=[{wch:12},{wch:12},{wch:18},{wch:10},{wch:9},{wch:7},{wch:8},{wch:38},{wch:10},{wch:28}];
+  // Style header row
+  XLSX.utils.book_append_sheet(wb, ws1, 'Historique');
+
+  // ── Feuille 2 : Sac PS détail (dernier) ──
+  const lastSps = history.find(h=>h.type==='sps');
+  if(lastSps) {
+    const spsRows = [['CS CHANAC — Sac PS N°1 (dernier contrôle)'],[''],
+      ['Réalisé par', lastSps.realise],['Date', lastSps.date],['Garde', lastSps.garde],['']];
+    const secLabels={'pg':'Poche gauche','rouge':'Sacoche rouge','violette':'Sacoche violette','bleue':'Sacoche bleue','devant':'Devant du sac','pcarr':'Poche centrale arrière','verte':'Sacoche verte','pd':'Poche droite'};
+    Object.entries(SPS).forEach(([sec,items])=>{
+      spsRows.push([secLabels[sec]||sec]);
+      spsRows.push(['Qté','Équipement','Statut']);
+      items.forEach(([qty,name],i)=>{
+        const st=spsC[sec+'_'+i]||'';
+        spsRows.push([qty,name,st==='P'?'✓ Présent':st==='A'?'✗ Absent':'— Non vérifié']);
+      });
+      spsRows.push(['']);
+    });
+    if(lastSps.remarques) spsRows.push(['Remarques',lastSps.remarques]);
+    const ws2=XLSX.utils.aoa_to_sheet(spsRows);
+    ws2['!cols']=[{wch:8},{wch:36},{wch:14}];
+    XLSX.utils.book_append_sheet(wb,ws2,'Sac PS — Détail');
+  }
+
+  // ── Feuille 3 : DSA dernier ──
+  const lastDsa = history.find(h=>h.type==='dsa');
+  if(lastDsa) {
+    const dsaRows=[['CS CHANAC — DSA (dernier contrôle)'],[''],
+      ['Réalisé par',lastDsa.realise],['Date',lastDsa.date],['Garde',lastDsa.garde],[''],
+      ['Qté','Équipement','Statut']];
+    DSA_LIST.forEach(([qty,name],i)=>{
+      const st=dsaC['dsa_'+i]||'';
+      dsaRows.push([qty,name,st==='P'?'✓ Présent':st==='A'?'✗ Absent':'— Non vérifié']);
+    });
+    dsaRows.push(['','Batterie',dsaBat==='ok'?'✓ OK':dsaBat==='low'?'⚠ Faible':'—']);
+    if(lastDsa.remarques) dsaRows.push([''],['Remarques',lastDsa.remarques]);
+    const ws3=XLSX.utils.aoa_to_sheet(dsaRows);
+    ws3['!cols']=[{wch:8},{wch:42},{wch:14}];
+    XLSX.utils.book_append_sheet(wb,ws3,'DSA — Détail');
+  }
+
+  // ── Feuille 4 : VSAV dernier ──
+  const lastVsav = history.find(h=>h.type==='vsav');
+  if(lastVsav && vsavItems.length) {
+    const vRows=[['CS CHANAC — VSAV (dernier contrôle)'],[''],
+      ['Réalisé par',lastVsav.realise],['Date',lastVsav.date],['Garde',lastVsav.garde],[''],
+      ['Qté','Équipement','Statut']];
+    vsavItems.forEach((it,i)=>{
+      const st=vsavC['vsav_'+i]||'';
+      vRows.push([it.qty,it.name,st==='P'?'✓ Présent':st==='A'?'✗ Absent':'— Non vérifié']);
+    });
+    if(lastVsav.remarques) vRows.push([''],['Remarques',lastVsav.remarques]);
+    const ws4=XLSX.utils.aoa_to_sheet(vRows);
+    ws4['!cols']=[{wch:8},{wch:36},{wch:14}];
+    XLSX.utils.book_append_sheet(wb,ws4,'VSAV — Détail');
+  }
+
+  return wb;
+}
+
+function autoExportExcel() {
+  if(!history.length) return;
+  const wb = buildHistoryWorkbook();
+  XLSX.writeFile(wb, `Chanac_Inventaires_${today()}.xlsx`);
+}
+
+function exportAllExcel() {
+  if(!history.length){ toast('Aucun contrôle à exporter'); return; }
+  const wb = buildHistoryWorkbook();
+  XLSX.writeFile(wb, `Chanac_Inventaires_Complet_${today()}.xlsx`);
+  toast('📊 Excel complet téléchargé');
+}
+
+// ══════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════
+function today(){ return new Date().toISOString().slice(0,10); }
+
+function toast(msg) {
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),3000);
+}
+
+document.addEventListener('keydown',e=>{ if(e.key==='Enter'&&document.activeElement.id==='vsav-new-name') addVsav(); });
+
+init();
+</script>
+</body>
+</html>
